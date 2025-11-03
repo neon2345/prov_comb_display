@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>省份组合区域展示</title>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=05274d5027e6b22978b2ade4630f3596"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            overflow: hidden;
+        }
+        #container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .control-panel {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            width: 350px;
+            max-height: calc(100vh - 20px);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            overflow-y: auto;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .control-panel.hidden {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .panel-toggle-btn {
+            position: absolute;
+            left: 360px;
+            top: 10px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #333;
+            transition: left 0.3s ease-in-out, background 0.2s;
+        }
+        .panel-toggle-btn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+        .control-panel.hidden ~ .panel-toggle-btn {
+            left: 10px;
+            border-radius: 8px;
+        }
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+        }
+        .region-section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .region-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .region-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .region-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        .region-color {
+            width: 30px;
+            height: 20px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-delete:hover {
+            background: #c82333;
+        }
+        .province-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+        }
+        .province-tag {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .province-tag .tag-remove {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-add-region {
+            width: 100%;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .btn-add-region:hover {
+            background: #218838;
+        }
+        .add-region-form {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #555;
+        }
+        .form-input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .form-select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            font-size: 13px;
+            height: 120px;
+            overflow-y: auto;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-submit {
+            flex: 1;
+            padding: 8px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-submit:hover {
+            background: #0056b3;
+        }
+        .btn-cancel {
+            flex: 1;
+            padding: 8px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-cancel:hover {
+            background: #545b62;
+        }
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color-box {
+            width: 25px;
+            height: 18px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .legend-name {
+            font-size: 13px;
+            color: #555;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="map"></div>
+        <div class="control-panel" id="controlPanel">
+            <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>区域管理</span>
+                <button class="btn-toggle-panel" onclick="toggleControlPanel()" title="隐藏/显示面板" style="
+                    background: transparent;
+                    border: none;
+                    font-size: 18px;
+                    cursor: pointer;
+                    color: #666;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    transition: background 0.2s;
+                " onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">◀</button>
+            </div>
+            <button class="btn-add-region" onclick="showAddRegionForm()">+ 添加新区域</button>
+            
+            <div id="addRegionForm" style="display: none;" class="add-region-form">
+                <div class="form-group">
+                    <label class="form-label">区域名称:</label>
+                    <input type="text" id="regionNameInput" class="form-input" placeholder="请输入区域名称">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">选择省份（可多选）:</label>
+                    <select id="provinceSelect" class="form-select" multiple>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">区域颜色:</label>
+                    <input type="color" id="regionColorInput" class="form-input" value="#007bff">
+                </div>
+                <div class="form-actions">
+                    <button class="btn-submit" onclick="addRegion()">确定</button>
+                    <button class="btn-cancel" onclick="hideAddRegionForm()">取消</button>
+                </div>
+            </div>
+            
+            <div id="regionsContainer"></div>
+        </div>
+        
+        <button class="panel-toggle-btn" id="panelToggleBtn" onclick="toggleControlPanel()" title="显示控制面板" style="display: none;">▶</button>
+        
+        <div class="legend" id="legend" style="display: none;">
+            <div class="legend-title">图例</div>
+            <div id="legendContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // 高德地图API Key
+        const AMAP_KEY = '05274d5027e6b22978b2ade4630f3596';
+        
+        let map;
+        let regions = []; // 存储所有自定义区域
+        let districtPolygons = []; // 存储所有省份边界多边形
+        let regionLabels = []; // 存储区域名称标签
+        let districtSearchInstance = null; // DistrictSearch实例
+        let districtPluginLoaded = false; // 插件是否已加载
+        
+        // 中国所有省份列表
+        const provinces = [
+            '北京市', '天津市', '河北省', '山西省', '内蒙古自治区',
+            '辽宁省', '吉林省', '黑龙江省', '上海市', '江苏省',
+            '浙江省', '安徽省', '福建省', '江西省', '山东省',
+            '河南省', '湖北省', '湖南省', '广东省', '广西壮族自治区',
+            '海南省', '重庆市', '四川省', '贵州省', '云南省',
+            '西藏自治区', '陕西省', '甘肃省', '青海省', '宁夏回族自治区',
+            '新疆维吾尔自治区', '台湾省', '香港特别行政区', '澳门特别行政区'
+        ];
+        
+        // 切换控制面板显示/隐藏
+        function toggleControlPanel() {
+            const panel = document.getElementById('controlPanel');
+            const toggleBtn = document.getElementById('panelToggleBtn');
+            const titleBtn = panel.querySelector('.btn-toggle-panel');
+            
+            if (panel.classList.contains('hidden')) {
+                // 显示面板
+                panel.classList.remove('hidden');
+                toggleBtn.style.display = 'none';
+                if (titleBtn) {
+                    titleBtn.innerHTML = '◀';
+                    titleBtn.title = '隐藏面板';
+                }
+            } else {
+                // 隐藏面板
+                panel.classList.add('hidden');
+                // 延迟显示切换按钮，等待动画完成
+                setTimeout(() => {
+                    toggleBtn.style.display = 'flex';
+                    toggleBtn.innerHTML = '▶';
+                    toggleBtn.title = '显示控制面板';
+                }, 100);
+                if (titleBtn) {
+                    titleBtn.innerHTML = '▶';
+                    titleBtn.title = '显示面板';
+                }
+            }
+        }
+        
+        // 初始化地图
+        function initMap() {
+            map = new AMap.Map('map', {
+                zoom: 5,
+                center: [105, 35] // 中国中心位置
+            });
+            
+            // 地图加载完成后执行
+            map.on('complete', function() {
+                console.log('地图加载完成');
+                // 初始化省份选择列表
+                initProvinceSelect();
+                
+                // 加载保存的区域数据（如果存在）
+                loadSavedRegions();
+            });
+        }
+        
+        // 初始化省份选择下拉框
+        function initProvinceSelect() {
+            const select = document.getElementById('provinceSelect');
+            provinces.forEach(province => {
+                const option = document.createElement('option');
+                option.value = province;
+                option.textContent = province;
+                select.appendChild(option);
+            });
+        }
+        
+        // 显示添加区域表单
+        function showAddRegionForm() {
+            document.getElementById('addRegionForm').style.display = 'block';
+            document.getElementById('regionNameInput').value = '';
+            document.getElementById('provinceSelect').selectedIndex = -1;
+            document.getElementById('regionColorInput').value = getRandomColor();
+        }
+        
+        // 隐藏添加区域表单
+        function hideAddRegionForm() {
+            document.getElementById('addRegionForm').style.display = 'none';
+        }
+        
+        // 获取随机颜色
+        function getRandomColor() {
+            const colors = [
+                '#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8',
+                '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+        
+        // 添加区域
+        function addRegion() {
+            const name = document.getElementById('regionNameInput').value.trim();
+            const select = document.getElementById('provinceSelect');
+            const selectedProvinces = Array.from(select.selectedOptions).map(opt => opt.value);
+            const color = document.getElementById('regionColorInput').value;
+            
+            if (!name) {
+                alert('请输入区域名称');
+                return;
+            }
+            
+            if (selectedProvinces.length === 0) {
+                alert('请至少选择一个省份');
+                return;
+            }
+            
+            // 创建新区域
+            const region = {
+                id: Date.now(),
+                name: name,
+                provinces: selectedProvinces,
+                color: color
+            };
+            
+            regions.push(region);
+            
+            // 更新界面
+            renderRegions();
+            
+            // 绘制区域
+            drawRegion(region);
+            
+            // 隐藏表单
+            hideAddRegionForm();
+            
+            // 保存到本地存储
+            saveRegions();
+            
+            // 更新图例
+            updateLegend();
+        }
+        
+        // 删除区域
+        function deleteRegion(regionId) {
+            if (confirm('确定要删除这个区域吗？')) {
+                // 从数组中移除
+                regions = regions.filter(r => r.id !== regionId);
+                
+                // 移除地图上的多边形
+                districtPolygons.forEach(polygon => {
+                    if (polygon.regionId === regionId) {
+                        map.remove(polygon);
+                    }
+                });
+                districtPolygons = districtPolygons.filter(p => p.regionId !== regionId);
+                
+                // 移除区域标签
+                removeRegionLabel(regionId);
+                
+                // 更新界面
+                renderRegions();
+                
+                // 保存到本地存储
+                saveRegions();
+                
+                // 更新图例
+                updateLegend();
+            }
+        }
+        
+        // 从区域中移除省份
+        function removeProvinceFromRegion(regionId, province) {
+            const region = regions.find(r => r.id === regionId);
+            if (region) {
+                region.provinces = region.provinces.filter(p => p !== province);
+                
+                // 重新绘制该区域
+                removeRegionFromMap(regionId);
+                drawRegion(region);
+                
+                // 更新界面
+                renderRegions();
+                
+                // 保存到本地存储
+                saveRegions();
+            }
+        }
+        
+        // 绘制区域
+        async function drawRegion(region) {
+            console.log(`开始绘制区域: ${region.name}`, region);
+            const regionPolygons = []; // 存储该区域的所有多边形
+            
+            for (const province of region.provinces) {
+                try {
+                    console.log(`开始查询省份: ${province}`);
+                    // 使用高德地图行政区划查询API
+                    const result = await queryDistrict(province);
+                    console.log(`查询${province}返回的完整结果:`, result);
+                    
+                    // 检查多种可能的结果结构
+                    let district = null;
+                    if (result.districtList && result.districtList.length > 0) {
+                        district = result.districtList[0];
+                    } else if (result.districts && result.districts.length > 0) {
+                        district = result.districts[0];
+                    } else if (result.data && result.data.length > 0) {
+                        district = result.data[0];
+                    }
+                    
+                    if (district) {
+                        // 调试信息 - 输出完整的district对象
+                        console.log(`查询${province}的结果:`, district);
+                        console.log(`district的所有属性:`, Object.keys(district));
+                        console.log(`district的完整内容:`, JSON.stringify(district, null, 2));
+                        
+                        // 尝试多种方式获取边界数据
+                        let boundaries = [];
+                        let polygonsToAdd = [];
+                        
+                        // 方法1: 检查district.boundaries数组
+                        if (district.boundaries && Array.isArray(district.boundaries) && district.boundaries.length > 0) {
+                            boundaries = district.boundaries;
+                            console.log(`从boundaries字段获取到${boundaries.length}个边界`);
+                        }
+                        // 方法2: 检查district.boundary单数形式
+                        else if (district.boundary) {
+                            boundaries = Array.isArray(district.boundary) ? district.boundary : [district.boundary];
+                            console.log(`从boundary字段获取边界`);
+                        }
+                        // 方法3: 检查district.extensions（扩展信息中可能包含边界）
+                        else if (district.extensions) {
+                            console.log(`检查extensions:`, district.extensions);
+                            if (district.extensions.boundaries) {
+                                boundaries = Array.isArray(district.extensions.boundaries) 
+                                    ? district.extensions.boundaries 
+                                    : [district.extensions.boundaries];
+                                console.log(`从extensions.boundaries获取到${boundaries.length}个边界`);
+                            } else if (district.extensions.boundary) {
+                                boundaries = Array.isArray(district.extensions.boundary) 
+                                    ? district.extensions.boundary 
+                                    : [district.extensions.boundary];
+                                console.log(`从extensions.boundary获取边界`);
+                            }
+                        }
+                        // 方法4: 检查result.boundaries（可能在result层级）
+                        else if (result.boundaries && Array.isArray(result.boundaries) && result.boundaries.length > 0) {
+                            boundaries = result.boundaries;
+                            console.log(`从result.boundaries获取到${boundaries.length}个边界`);
+                        }
+                        // 方法5: 尝试使用GeoJSON数据
+                        else if (district.geoJSON) {
+                            try {
+                                // 如果返回的是GeoJSON格式，需要解析
+                                const geoJSON = typeof district.geoJSON === 'string' 
+                                    ? JSON.parse(district.geoJSON) 
+                                    : district.geoJSON;
+                                
+                                if (geoJSON.features) {
+                                    geoJSON.features.forEach(feature => {
+                                        if (feature.geometry && feature.geometry.coordinates) {
+                                            // 处理GeoJSON coordinates
+                                            const coords = feature.geometry.coordinates;
+                                            if (feature.geometry.type === 'Polygon') {
+                                                boundaries.push(coords[0]); // 外层边界
+                                            } else if (feature.geometry.type === 'MultiPolygon') {
+                                                coords.forEach(poly => {
+                                                    boundaries.push(poly[0]); // 每个多边形的外层边界
+                                                });
+                                            }
+                                        }
+                                    });
+                                    console.log(`从geoJSON获取到${boundaries.length}个边界`);
+                                }
+                            } catch (geoError) {
+                                console.warn(`解析geoJSON失败:`, geoError);
+                            }
+                        }
+                        
+                        // 处理每个边界
+                        if (boundaries && boundaries.length > 0) {
+                            boundaries.forEach((boundary, index) => {
+                                try {
+                                    let path = null;
+                                    
+                                    // 解析边界数据
+                                    if (typeof boundary === 'string') {
+                                        // 字符串格式: "lng1,lat1;lng2,lat2;..."
+                                        const points = [];
+                                        const parts = boundary.split(';').filter(p => p.trim());
+                                        parts.forEach(part => {
+                                            const [lng, lat] = part.split(',').map(s => s.trim());
+                                            if (lng && lat && !isNaN(lng) && !isNaN(lat)) {
+                                                points.push([parseFloat(lng), parseFloat(lat)]);
+                                            }
+                                        });
+                                        if (points.length >= 3) path = points;
+                                    } else if (Array.isArray(boundary)) {
+                                        // 数组格式
+                                        if (boundary.length === 0) return;
+                                        
+                                        // 检查第一个元素的类型
+                                        const first = boundary[0];
+                                        
+                                        if (Array.isArray(first)) {
+                                            // 二维数组: [[lng, lat], ...]
+                                            if (typeof first[0] === 'number') {
+                                                path = boundary; // [[lng, lat], [lng, lat], ...]
+                                            } else if (Array.isArray(first[0])) {
+                                                // 三维数组: [[[lng, lat], ...], ...]
+                                                path = boundary[0]; // 取第一层
+                                            }
+                                        } else if (typeof first === 'object' && first !== null) {
+                                            // 对象数组: [{lng: xxx, lat: xxx}, ...]
+                                            if (first.lng !== undefined && first.lat !== undefined) {
+                                                path = boundary.map(p => [parseFloat(p.lng), parseFloat(p.lat)]);
+                                            } else if (first.longitude !== undefined && first.latitude !== undefined) {
+                                                path = boundary.map(p => [parseFloat(p.longitude), parseFloat(p.latitude)]);
+                                            } else if (first[0] !== undefined && first[1] !== undefined) {
+                                                path = boundary.map(p => [parseFloat(p[0]), parseFloat(p[1])]);
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 验证路径
+                                    if (!path || !Array.isArray(path) || path.length < 3) {
+                                        console.warn(`${province}边界${index}数据无效或点数不足`, path);
+                                        return;
+                                    }
+                                    
+                                    // 创建多边形
+                                    const polygon = new AMap.Polygon({
+                                        path: path,
+                                        fillColor: region.color,
+                                        fillOpacity: 0.5,
+                                        strokeColor: region.color,
+                                        strokeWeight: 2,
+                                        strokeOpacity: 0.9,
+                                        cursor: 'pointer',
+                                        zIndex: 10
+                                    });
+                                    
+                                    polygon.regionId = region.id;
+                                    polygon.regionName = region.name;
+                                    polygon.provinceName = province;
+                                    
+                                    polygonsToAdd.push(polygon);
+                                    console.log(`成功解析${province}边界${index}，点数: ${path.length}`);
+                                    
+                                    // 添加鼠标事件
+                                    polygon.on('mouseover', function() {
+                                        polygon.setOptions({
+                                            fillOpacity: 0.7,
+                                            strokeWeight: 3
+                                        });
+                                    });
+                                    
+                                    polygon.on('mouseout', function() {
+                                        polygon.setOptions({
+                                            fillOpacity: 0.5,
+                                            strokeWeight: 2
+                                        });
+                                    });
+                                    
+                                    polygon.on('click', function() {
+                                        showRegionInfo(region);
+                                    });
+                                    
+                                } catch (polyError) {
+                                    console.error(`绘制${province}边界${index}时出错:`, polyError, boundary);
+                                }
+                            });
+                            
+                            // 批量添加到地图
+                            if (polygonsToAdd.length > 0) {
+                                polygonsToAdd.forEach(polygon => {
+                                    map.add(polygon);
+                                    districtPolygons.push(polygon);
+                                    regionPolygons.push(polygon); // 添加到区域多边形列表
+                                });
+                                console.log(`成功绘制${province}，共${polygonsToAdd.length}个多边形`);
+                            }
+                        } else {
+                            console.warn(`${province}没有找到边界数据，district对象:`, district);
+                            // 如果没有边界数据，尝试使用中心点创建一个标记作为提示
+                            if (district.center) {
+                                const marker = new AMap.Marker({
+                                    position: district.center,
+                                    title: province + ' (无边界数据)',
+                                    icon: new AMap.Icon({
+                                        size: new AMap.Size(24, 24),
+                                        image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
+                                    })
+                                });
+                                map.add(marker);
+                            }
+                        }
+                    } else {
+                        console.warn(`查询${province}未返回数据`);
+                    }
+                } catch (error) {
+                    console.error(`加载${province}边界失败:`, error);
+                    alert(`加载${province}边界失败，请查看控制台获取详细信息`);
+                }
+            }
+            
+            // 为该区域添加名称标签
+            if (regionPolygons.length > 0) {
+                addRegionLabel(region, regionPolygons);
+            }
+        }
+        
+        // 计算多边形的中心点
+        function calculatePolygonCenter(polygon) {
+            const path = polygon.getPath();
+            if (!path || path.length === 0) return null;
+            
+            let sumLng = 0;
+            let sumLat = 0;
+            path.forEach(point => {
+                sumLng += point.lng || point[0];
+                sumLat += point.lat || point[1];
+            });
+            
+            return [sumLng / path.length, sumLat / path.length];
+        }
+        
+        // 添加区域名称标签
+        function addRegionLabel(region, polygons) {
+            // 先移除该区域的旧标签（如果存在）
+            removeRegionLabel(region.id);
+            
+            // 计算所有多边形的中心点
+            const centers = [];
+            polygons.forEach(polygon => {
+                const path = polygon.getPath();
+                if (path && path.length > 0) {
+                    let sumLng = 0;
+                    let sumLat = 0;
+                    let count = 0;
+                    path.forEach(point => {
+                        const lng = point.lng !== undefined ? point.lng : point[0];
+                        const lat = point.lat !== undefined ? point.lat : point[1];
+                        sumLng += lng;
+                        sumLat += lat;
+                        count++;
+                    });
+                    if (count > 0) {
+                        centers.push([sumLng / count, sumLat / count]);
+                    }
+                }
+            });
+            
+            // 如果有多边形，计算所有中心点的平均值作为标签位置
+            if (centers.length > 0) {
+                let totalLng = 0;
+                let totalLat = 0;
+                centers.forEach(center => {
+                    totalLng += center[0];
+                    totalLat += center[1];
+                });
+                const labelPosition = [totalLng / centers.length, totalLat / centers.length];
+                
+                // 创建文本标签 - 使用高德地图的TextMarker或自定义Marker
+                // 创建文本标签的HTML内容
+                const labelHtml = `<div style="
+                    background-color: ${region.color};
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    white-space: nowrap;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    border: 2px solid white;
+                    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+                ">${region.name}</div>`;
+                
+                // 使用自定义Marker来显示文本标签
+                const textLabel = new AMap.Marker({
+                    position: labelPosition,
+                    content: labelHtml,
+                    offset: new AMap.Pixel(0, 0),
+                    zIndex: 100, // 确保标签在多边形之上
+                    anchor: 'center-center'
+                });
+                
+                textLabel.regionId = region.id;
+                map.add(textLabel);
+                regionLabels.push(textLabel);
+                
+                console.log(`为区域${region.name}添加标签，位置:`, labelPosition);
+            }
+        }
+        
+        // 移除区域标签
+        function removeRegionLabel(regionId) {
+            const labelsToRemove = regionLabels.filter(label => label.regionId === regionId);
+            labelsToRemove.forEach(label => {
+                map.remove(label);
+            });
+            regionLabels = regionLabels.filter(label => label.regionId !== regionId);
+        }
+        
+        // 初始化DistrictSearch插件
+        function initDistrictSearch() {
+            return new Promise((resolve, reject) => {
+                if (districtPluginLoaded && districtSearchInstance) {
+                    resolve(districtSearchInstance);
+                    return;
+                }
+                
+                AMap.plugin('AMap.DistrictSearch', function() {
+                    try {
+                        districtSearchInstance = new AMap.DistrictSearch({
+                            extensions: 'all', // 返回详细信息包括边界
+                            subdistrict: 0, // 不返回下级行政区
+                            level: 'province' // 查询级别为省份
+                        });
+                        districtPluginLoaded = true;
+                        console.log('DistrictSearch插件加载成功');
+                        resolve(districtSearchInstance);
+                    } catch (error) {
+                        console.error('创建DistrictSearch实例失败:', error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+        
+        // 查询行政区划 - 使用RESTful API
+        function queryDistrict(keyword) {
+            return new Promise((resolve, reject) => {
+                // 处理省份名称，构建查询关键词列表
+                const searchKeywords = [keyword];
+                
+                // 生成可能的查询关键词变体
+                if (keyword.includes('省')) {
+                    searchKeywords.push(keyword.replace('省', ''));
+                } else if (keyword.includes('市')) {
+                    searchKeywords.push(keyword.replace('市', ''));
+                } else if (keyword.includes('自治区')) {
+                    searchKeywords.push(keyword.replace('自治区', ''));
+                } else if (keyword.includes('特别行政区')) {
+                    searchKeywords.push(keyword.replace('特别行政区', ''));
+                }
+                
+                console.log(`使用RESTful API查询: ${keyword}, 关键词列表:`, searchKeywords);
+                
+                // 使用RESTful API查询
+                const trySearch = async (index) => {
+                    if (index >= searchKeywords.length) {
+                        reject(new Error(`查询失败: 所有关键词都尝试过了`));
+                        return;
+                    }
+                    
+                    const searchKey = encodeURIComponent(searchKeywords[index]);
+                    const url = `https://restapi.amap.com/v3/config/district?keywords=${searchKey}&subdistrict=0&extensions=all&key=${AMAP_KEY}`;
+                    
+                    console.log(`尝试查询 (${index + 1}/${searchKeywords.length}): ${url}`);
+                    
+                    try {
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        
+                        console.log(`API返回数据:`, data);
+                        
+                        if (data.status === '1' && data.districts && data.districts.length > 0) {
+                            console.log(`查询成功，找到${data.districts.length}个区域`);
+                            // 构造类似SDK返回的格式
+                            const result = {
+                                districtList: data.districts.map(dist => ({
+                                    name: dist.name,
+                                    adcode: dist.adcode,
+                                    level: dist.level,
+                                    center: dist.center ? dist.center.split(',').map(Number) : null,
+                                    boundaries: dist.polyline ? parsePolyline(dist.polyline) : null,
+                                    boundary: dist.polyline ? parsePolyline(dist.polyline)[0] : null
+                                }))
+                            };
+                            resolve(result);
+                        } else {
+                            console.warn(`查询失败，状态: ${data.status}, 信息: ${data.info}`);
+                            // 尝试下一个关键词
+                            trySearch(index + 1);
+                        }
+                    } catch (error) {
+                        console.error(`查询出错:`, error);
+                        // 尝试下一个关键词
+                        trySearch(index + 1);
+                    }
+                };
+                
+                // 解析polyline字符串为坐标数组
+                function parsePolyline(polyline) {
+                    if (!polyline) return [];
+                    
+                    const boundaries = [];
+                    const polygons = polyline.split('|');
+                    
+                    polygons.forEach(polygonStr => {
+                        const points = [];
+                        const coords = polygonStr.split(';');
+                        
+                        coords.forEach(coord => {
+                            const [lng, lat] = coord.split(',').map(Number);
+                            if (!isNaN(lng) && !isNaN(lat)) {
+                                points.push([lng, lat]);
+                            }
+                        });
+                        
+                        if (points.length >= 3) {
+                            boundaries.push(points);
+                        }
+                    });
+                    
+                    return boundaries;
+                }
+                
+                // 开始查询
+                trySearch(0);
+            });
+        }
+        
+        // 从地图移除区域
+        function removeRegionFromMap(regionId) {
+            districtPolygons.filter(p => p.regionId === regionId).forEach(polygon => {
+                map.remove(polygon);
+            });
+            districtPolygons = districtPolygons.filter(p => p.regionId !== regionId);
+            
+            // 移除区域标签
+            removeRegionLabel(regionId);
+        }
+        
+        // 显示区域信息
+        function showRegionInfo(region) {
+            alert(`区域: ${region.name}\n包含省份: ${region.provinces.join('、')}`);
+        }
+        
+        // 渲染区域列表
+        function renderRegions() {
+            const container = document.getElementById('regionsContainer');
+            
+            if (regions.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无区域<br>点击上方按钮添加区域</div>';
+                return;
+            }
+            
+            container.innerHTML = regions.map(region => `
+                <div class="region-item">
+                    <div class="region-header">
+                        <span class="region-name">${region.name}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="region-color" style="background-color: ${region.color}" 
+                                 onclick="changeRegionColor(${region.id})" 
+                                 title="点击更改颜色"></div>
+                            <button class="btn-delete" onclick="deleteRegion(${region.id})">删除</button>
+                        </div>
+                    </div>
+                    <div class="province-list">
+                        ${region.provinces.map(prov => `
+                            <div class="province-tag">
+                                ${prov}
+                                <span class="tag-remove" onclick="removeProvinceFromRegion(${region.id}, '${prov}')">×</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 更改区域颜色
+        function changeRegionColor(regionId) {
+            const region = regions.find(r => r.id === regionId);
+            if (region) {
+                const newColor = prompt('请输入颜色值（如 #007bff）:', region.color);
+                if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
+                    region.color = newColor;
+                    
+                    // 重新绘制区域
+                    removeRegionFromMap(regionId);
+                    drawRegion(region);
+                    
+                    // 更新界面
+                    renderRegions();
+                    
+                    // 保存到本地存储
+                    saveRegions();
+                    
+                    // 更新图例
+                    updateLegend();
+                } else if (newColor) {
+                    alert('颜色格式不正确，请使用十六进制格式，如 #007bff');
+                }
+            }
+        }
+        
+        // 更新图例
+        function updateLegend() {
+            const legend = document.getElementById('legend');
+            const legendContent = document.getElementById('legendContent');
+            
+            if (regions.length === 0) {
+                legend.style.display = 'none';
+                return;
+            }
+            
+            legend.style.display = 'block';
+            legendContent.innerHTML = regions.map(region => `
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background-color: ${region.color}"></div>
+                    <div class="legend-name">${region.name}</div>
+                </div>
+            `).join('');
+        }
+        
+        // 保存区域到本地存储
+        function saveRegions() {
+            try {
+                localStorage.setItem('customRegions', JSON.stringify(regions));
+            } catch (error) {
+                console.error('保存区域失败:', error);
+            }
+        }
+        
+        // 从本地存储加载区域
+        async function loadSavedRegions() {
+            try {
+                const saved = localStorage.getItem('customRegions');
+                if (saved) {
+                    regions = JSON.parse(saved);
+                    console.log('从本地存储加载了', regions.length, '个区域:', regions);
+                    renderRegions();
+                    
+                    // 等待所有区域绘制完成
+                    for (const region of regions) {
+                        await drawRegion(region);
+                    }
+                    
+                    updateLegend();
+                    console.log('所有区域绘制完成');
+                } else {
+                    console.log('没有保存的区域数据');
+                }
+            } catch (error) {
+                console.error('加载区域失败:', error);
+            }
+        }
+        
+        // 页面加载完成后初始化
+        window.onload = initMap;
+    </script>
+</body>
+</html>
+
